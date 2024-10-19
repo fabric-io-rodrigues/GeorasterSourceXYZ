@@ -22,7 +22,10 @@ class GeoRasterSourceXYZ extends ol.source.XYZ {
     getValueRasterData(tileZ, tileX, tileY, xPixel, yPixel) {
         const tileKey = tileX + '-' + tileY;
         const tileData = this.cacheData.get(tileKey);
-        return tileData ? tileData[yPixel][xPixel] : this.options.noData;
+        if (!tileData || !tileData[yPixel] || !tileData[yPixel][xPixel]) {
+            return this.options.noData;
+        }
+        return tileData[yPixel][xPixel];
     }
 
     getPixelValueAtCoordinate(coordinate, zoom) {
