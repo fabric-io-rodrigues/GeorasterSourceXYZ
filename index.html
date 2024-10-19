@@ -5,13 +5,22 @@
 
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v10.2.1/ol.css" />
         <style>
-            /* 100% */
             html, body {
                 margin: 0;
                 padding: 0;
                 height: 100%;
                 width: 100%;
             }
+            .text_coordinates{
+                position: absolute;
+                left: 10px;
+                bottom: 10px;
+                background-color: rgba(255, 255, 255, 0.8);
+                padding: 5px;
+                border-radius: 5px;
+                z-index: 1000;
+            }
+
         </style>
         <script src="https://cdn.jsdelivr.net/npm/georaster@1.6.0/dist/georaster.browser.bundle.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/ol@v10.2.1/dist/ol.js"></script>
@@ -21,21 +30,35 @@
     </head>
     <body>
         <div id="map" style="width: 100%; height: 100vh;"></div>
+        <span id="text_coordinates" class="text_coordinates"></span>
     </body>
 
     <script>
+        const layer = new ol.layer.Tile({
+            source: new GeoRasterSourceXYZ(optionLayerElevation)
+        });
+
         const map = new ol.Map({
             target: 'map',
             layers: [
-                new ol.layer.Tile({
-                    source: new GeoRasterSourceXYZ(optionLayerElevation)
-                }),
-                //new ol.layer.Tile({ source: new ol.source.TileDebug({ projection: 'EPSG:3857' }) })
+                layer,
+                new ol.layer.Tile({ source: new ol.source.TileDebug({ projection: 'EPSG:3857' }) })
             ],
             view: new ol.View({
                 center: ol.proj.fromLonLat([0, 0]), 
                 zoom: 2
             })
         });
+        map.on('pointermove', function (e) {
+            var zoom = e.target.getView().getZoom();
+            var pixelValue = layer.getSource().getPixelValueAtCoordinate(e.coordinate, zoom);
+            var options = layer.getSource().options;
+            if (pixelValue === null || pixelValue === undefined || pixelValue == options.noData) {
+                document.getElementById('text_coordinates').innerHTML = 'No data';
+                return;
+            }
+            document.getElementById('text_coordinates').innerHTML = pixelValue;
+        });
+
     </script>
 </html>

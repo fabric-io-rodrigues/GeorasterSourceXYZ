@@ -14,19 +14,19 @@ class GeoRasterSourceXYZ extends ol.source.XYZ {
             tileLoadFunction: (tile, src) => this.loadTile(tile, src, optionLayer.options),
             attributions: [optionLayer.attributions, "GeoRasterSourceXYZ"],
         });
-        this.cacheData = {};
+        this.cacheData = new Map();
         this.cacheZoom = 0;
         this.options = optionLayer.options;
     }
   
     getValueRasterData(tileZ, tileX, tileY, xPixel, yPixel) {
         const tileKey = tileX + '-' + tileY;
-        const tileData = this.cacheData[tileKey];
+        const tileData = this.cacheData.get(tileKey);
         return tileData ? tileData[yPixel][xPixel] : this.options.noData;
     }
 
     getPixelValueAtCoordinate(coordinate, zoom) {
-        const tileCoord = this.getTileGrid().getTileCoordForCoordAndZ(coordinate, Math.floor(zoom));
+        const tileCoord = this.getTileGrid().getTileCoordForCoordAndZ(coordinate, Math.round(zoom));
         const extent = this.getTileGrid().getTileCoordExtent(tileCoord);
         const tileSize = this.getTileGrid().getTileSize();
 
@@ -74,7 +74,7 @@ class GeoRasterSourceXYZ extends ol.source.XYZ {
                 }
                 context.putImageData(imageData, 0, 0);
                 tile.getImage().src = _tile.toDataURL();
-                this.cacheData[tile.getTileCoord()[1] + '-' + tile.getTileCoord()[2]] = JSON.parse(JSON.stringify(values));
+                this.cacheData.set(`${tile.getTileCoord()[1]}-${tile.getTileCoord()[2]}`, JSON.parse(JSON.stringify(values)));
             })
             .catch(error => {
                 console.error('Tile fetch error:', error);
