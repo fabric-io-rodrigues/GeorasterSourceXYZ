@@ -4,7 +4,7 @@
 // License: MIT
 // Usage: This class is used to create raster layers in OpenLayers that display geospatial data from XYZ tile servers. The class is used to create a raster source for XYZ tiles that contain geospatial data. The class loads the tiles and renders them as images on a canvas element, applying color scales and legends to the data values. The class also handles the conversion of data values to colors using a color scale and normalization of values to a range between 0 and 1.
 // Version: 1.0
-// Compatibility: OpenLayers 10.2.1 and GeoRaster 1.6.0
+// Compatibility: OpenLayers 10.2.1, GeoRaster 1.6.0 and D3 7.0.0
 
 class GeoRasterSourceXYZ extends ol.source.XYZ {
     constructor(optionLayer) {
@@ -17,12 +17,21 @@ class GeoRasterSourceXYZ extends ol.source.XYZ {
         this.cacheData = new Map();
         this.cacheZoom = 0;
         this.options = optionLayer.options;
+
+        if (!optionLayer.options.disableScaling) {
+			//this.colorScale = d3.scaleThreshold().domain(optionLayer.options.colorScale[1]).range(optionLayer.options.colorScale[0]);
+			this.colorScale = d3.scaleLinear().domain(optionLayer.options.colorScale[1]).range(optionLayer.options.colorScale[0]);
+			this.normalizeValue = d3.scaleLinear([optionLayer.options.scale.min, optionLayer.options.scale.max], [0,1]);
+        } else {
+            this.colorScale = function(value) { return optionLayer.options.colorScale[0][value]; }
+            this.normalizeValue = function(value) { return value; };
+        }
     }
   
     getValueRasterData(tileZ, tileX, tileY, xPixel, yPixel) {
         const tileKey = tileX + '-' + tileY;
         const tileData = this.cacheData.get(tileKey);
-        if (!tileData || !tileData[yPixel] || !tileData[yPixel][xPixel]) {
+        if (tileData === undefined || tileData === null || tileData[yPixel] === undefined || tileData[yPixel] === null || tileData[yPixel][xPixel] === undefined || tileData[yPixel][xPixel] === null) {
             return this.options.noData;
         }
         return tileData[yPixel][xPixel];
@@ -65,8 +74,7 @@ class GeoRasterSourceXYZ extends ol.source.XYZ {
                     for (let col = 0; col < width; col++) {
                         const value = values[row][col];
                         if (value !== options.noData) {
-                            const color = this.getNormalizedColor(value, options);
-                            const rgba = this.hexToRgbA(color);
+                            const rgba = this.colorScaleFunction(value);
                             const index = (row * width + col) * 4;
                             data[index] = rgba.r;
                             data[index + 1] = rgba.g;
@@ -84,39 +92,10 @@ class GeoRasterSourceXYZ extends ol.source.XYZ {
             });
     }
 
-    getNormalizedColor(value, options) {
-        const { min, max } = options.scale;
-        const colorScale = options.colorScale;
-        let colorIndex = 0;
-
-        if (options.discreteLegend) {
-            colorIndex = value;
-        } else {
-            let normalizedValue = (value - min) / (max - min);
-            normalizedValue = Math.max(0, Math.min(1, normalizedValue));
-            const scaleValues = colorScale[1];
-            let low = 0, high = scaleValues.length - 1;
-
-            while (low <= high) {
-                const mid = Math.floor((low + high) / 2);
-                if (normalizedValue >= scaleValues[mid]) {
-                    colorIndex = mid;
-                    low = mid + 1;
-                } else {
-                    high = mid - 1;
-                }
-            }
-        }
-
-        return colorScale[0][colorIndex];
+    colorScaleFunction = function(value) {
+        let _value = this.normalizeValue(value);
+        let _color = this.colorScale(_value);
+        return d3.color(_color).rgb();
     }
 
-    hexToRgbA(hex) {
-        const bigint = parseInt(hex.slice(1), 16);
-        return {
-            r: (bigint >> 16) & 255,
-            g: (bigint >> 8) & 255,
-            b: bigint & 255
-        };
-    }
 }
